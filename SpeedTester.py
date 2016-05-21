@@ -1,24 +1,27 @@
-'''
-@summary : Runs a speed test to test internet speed.
-           Results are written to a file called "speedresults.txt" in
-           the current directory.
-           This script is best used on a cronjob or windows schedule.
-@requirements : Windows PC (NETSH)
-                pip install speedtest-cli
-@author : Paul Pfeffer
-'''
+"""
+@summary Runs a speed test to test internet speed.
+
+Results are written to a file called "speedresults.txt" in a parent directory called Mgmt.
+This script is best used on a cronjob or windows schedule.
+
+@requirements Windows PC (NETSH)
+              pip install speedtest-cli
+
+@author Paul Pfeffer
+"""
 
 import os
 import subprocess
 import re
 import json
 import time
-print re.search(".+\\\\(.+)", os.getcwd()).group(1)
+
 PATH_TO_RESULTS = os.path.dirname(os.path.realpath(__file__)) + "\speedresults.txt"
-dirname = re.search(".+\\\\(.+)", os.getcwd()).group(1)
-PATH_TO_RESULTS = PATH_TO_RESULTS.replace(dirname, "Mgmt")
+PATH_TO_RESULTS = PATH_TO_RESULTS.replace("Graph-Internet-Speed", "Mgmt")
+
 
 def live_communicate(process, logger=None):
+    """Execute subprocess printing data when available."""
     data_received = ""
     while True:
         line = process.stdout.readline()
@@ -34,15 +37,16 @@ def live_communicate(process, logger=None):
 
 
 class SpeedTester(object):
-    """Get the speed of Internet"""
+    """Get the speed of Internet."""
 
     def __init__(self):
+        """Define needed regex and main results dictionary."""
         super(SpeedTester, self).__init__()
         self.ipv4_regex = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
         self.results = {}
 
     def get_previous_results(self):
-        '''Adds previous results from json'''
+        """Add previous results from json."""
         with open(PATH_TO_RESULTS) as f:
             try:
                 self.results = json.load(f)
@@ -50,11 +54,13 @@ class SpeedTester(object):
                 print "No json was loaded from speedresults.txt"
 
     def run_test(self):
+        """Execute speed test process and save results."""
         print "Running Test.........."
         speedtest_process = subprocess.Popen(
             ["C:\Python27\Scripts\speedtest.exe"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        speedtest_out = live_communicate(speedtest_process)
+        speedtest_out, er = speedtest_process.communicate()
+        # speedtest_out = live_communicate(speedtest_process)
 
         speedtest_process = subprocess.Popen(
             ["NETSH", "WLAN", "SHOW", "INTERFACE", "|", "findstr", "/r", "'^....SSID'"],
@@ -67,6 +73,11 @@ class SpeedTester(object):
         print "Saving Results Complete"
 
     def parse_and_save_results(self, output):
+        """
+        Parse results into the available keys.
+
+        @param output the raw output from running speedtest.exe
+        """
         # print output
         from_regex = "Testing from (.+) \((%s)" % self.ipv4_regex
         from_addr = re.search(from_regex, output)
@@ -97,6 +108,11 @@ class SpeedTester(object):
         self.results[time.strftime("%Y-%m-%d %H:%M:%S")] = result
 
     def write_results_to_file(self, pretty=False):
+        """
+        Write the gathered results to a text file.
+
+        @param pretty should be True if you want to read the result file yourself. (default=False)
+        """
         with open(PATH_TO_RESULTS, 'w') as f:
             if pretty:
                 f.write(json.dumps(self.results, f, sort_keys=True, indent=4, separators=(',', ': ')))
@@ -105,6 +121,7 @@ class SpeedTester(object):
 
 
 def main():
+    """Example of how to use the class."""
     tester = SpeedTester()
     tester.get_previous_results()
     tester.run_test()
@@ -112,3 +129,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+else:
+    print __name__

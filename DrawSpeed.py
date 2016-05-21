@@ -1,12 +1,13 @@
-'''
-@summary : Creates an html file for viewing SpeedTester data.
+"""
+Create an html file for viewing SpeedTester data.
+
 Choose what you want too see.
     ie : download, uploads or both (more options to follow)
 Allows for filtering on any attribute in json data
     ie : ssid, Provider or ip_address
 @requirements : pip install plotly
 @author : Paul Pfeffer
-'''
+"""
 
 import re
 import datetime
@@ -16,16 +17,17 @@ import SpeedTester
 
 
 class DrawSpeed(object):
-    """Draws SpeedTester data"""
+    """Draw SpeedTester data."""
 
     def __init__(self, speeddata):
+        """Initialize main data and some regexes."""
         super(DrawSpeed, self).__init__()
         self.speeddata = speeddata
         self.datetime_regex = "(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)"
         self.number = "(\d.+)(M|m)"
 
     def parsedata(self, parsedays=True):
-        '''Parses speedtester data into local variables.'''
+        """Parse speedtester data into local variables."""
         self.x_axis = []
         self.upload_speeds = []
         self.download_speeds = []
@@ -46,12 +48,16 @@ class DrawSpeed(object):
             self.download_speeds.append(float(re.search(self.number, val["download"]).group(1)))
             self.ping_speeds.append(float(re.search(self.number, val["ping"]).group(1)))
             self.ssid_names.append(val["ssid"])
-        # self.upload_ids = [str(x) + "-U" for x in self.x_axis]
-        # self.download_ids = [str(x) + "-D" for x in self.x_axis]
         if not parsedays:
-            self.x_axis = [d.replace(year=2000, month=1, day=1) for d in self.x_axis]
+            self.x_axis = [item.replace(year=2000, month=1, day=1) for item in self.x_axis]
 
     def filter_data(self, filter_key, filter_value):
+        """
+        Filter out specific key value pairs from data collected.
+
+        @param filter_key all keys are available for filtering however
+         the only ones that make sense are : (ssid, Provider)
+        """
         new_data = {}
         for date, data in self.speeddata.iteritems():
             keep_data = False
@@ -63,9 +69,11 @@ class DrawSpeed(object):
         self.speeddata = new_data
 
     def gettemplatetrace(self, graph):
-        '''
+        """
+        Initialize a default ploty graph.
+
         @retval Returns template trace.
-        '''
+        """
         upload_text = ["Upload : %s Mbit/s" % (str(i)) for i in self.upload_speeds]
         download_text = ["Download : %s Mbit/s" % (str(i))for i in self.download_speeds]
         ping_text = ["Ping : %s ms" % (str(i)) for i in self.ping_speeds]
@@ -86,11 +94,12 @@ class DrawSpeed(object):
         )
 
     def formdata(self, graph):
-        '''
-        Initializes data by with the trace types provided in graph.
+        """
+        Initialize data by with the trace types provided in graph.
+
         @param graph A string or list of strings containing the data types to graph
                         Current options : download, upload
-        '''
+        """
         data = []
         if ("download" in graph):
             y_axis = self.download_speeds
@@ -110,10 +119,7 @@ class DrawSpeed(object):
         self.data = data
 
     def setuplayout(self):
-        '''
-        Hard coded layout values exist here.
-        Try moving to json.
-        '''
+        """Hard coded layout values exist here. Try moving to json."""
         self.layout = plotly.graph_objs.Layout(
             title="Internet Speeds",
             xaxis=dict(
@@ -148,19 +154,21 @@ class DrawSpeed(object):
         )
 
     def drawdata(self):
-        '''Calls set up layout and plotly plot to make html page'''
+        """Call to set up layout and plotly plot to make html page."""
         self.setuplayout()
         fig = plotly.graph_objs.Figure(data=self.data, layout=self.layout)
         plotly.offline.plot(fig, filename='..\Mgmt\speedresults.html')
 
 
 def main():
+    """Example of how to use the class."""
     i_speed = SpeedTester.SpeedTester()
     i_speed.get_previous_results()
     d_speed = DrawSpeed(i_speed.results)
     d_speed.filter_data("ssid", "NETGEAR49-5G")
     d_speed.parsedata(parsedays=True)
-    d_speed.formdata(["download", "upload"])
+    # d_speed.formdata(["download", "upload"])
+    d_speed.formdata(["download"])
     d_speed.drawdata()
 if __name__ == '__main__':
     main()
