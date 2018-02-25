@@ -1,35 +1,27 @@
 """
-@summary Runs a speed test to test internet speed.
+Runs a speed test to test internet speed.
 
-Results are written to a file called "speedresults.txt" in a parent directory called Mgmt.
-This script is best used on a cronjob or windows schedule.
+Results are written to a file called "speedresults.json" in a child directory called Results.
+This script is best used with a cronjob, windows schedule or included runner script.
 
-@requirements Windows PC (NETSH)
-              pip install speedtest-cli
-
-@author Paul Pfeffer
+pip install speedtest-cli
 """
+__author__ = "Paul Pfeffer"
 
-import os
-import subprocess
-import re
 import json
+import os
+import re
+import subprocess
 import time
 
-PATH_TO_RESULTS = os.path.dirname(os.path.realpath(__file__)) + "\speedresults.txt"
-PATH_TO_RESULTS = PATH_TO_RESULTS.replace("Graph-Internet-Speed", "Mgmt")
 
-
-def live_communicate(process, logger=None):
+def live_communicate(process, logger):
     """Execute subprocess printing data when available."""
     data_received = ""
     while True:
         line = process.stdout.readline()
         if line != '':
-            if logger:
-                logger.info(line.rstrip())
-            else:
-                print line.rstrip()
+            logger.info(line.rstrip())
             data_received += line.rstrip()
         else:
             break
@@ -39,38 +31,55 @@ def live_communicate(process, logger=None):
 class SpeedTester(object):
     """Get the speed of Internet."""
 
-    def __init__(self):
-        """Define needed regex and main results dictionary."""
+    def __init__(self, logger, results_file):
+        """Define needed regex and main results dictionary.
+
+        @param logger
+        @param results_file
+        """
         super(SpeedTester, self).__init__()
         self.ipv4_regex = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
         self.results = {}
+        self.logger = logger
+        self.results_file = results_file
+        if os.name == "nt":
+            self.speedtest_cmd = "speedtest.exe"
+        else:
+            # assume nix
+            self.speedtest_cmd = "speedtest-cli"
+
+    def __del__(self):
+        """Alert that class is being torn down."""
+        self.logger.debug("Called __del__ method of SpeedTester")
 
     def get_previous_results(self):
         """Add previous results from json."""
-        with open(PATH_TO_RESULTS) as f:
+        with open(self.results_file) as f:
             try:
                 self.results = json.load(f)
             except ValueError:
-                print "No json was loaded from speedresults.txt"
+                self.logger.critical("No json was loaded from speedresults.json")
 
     def run_test(self):
         """Execute speed test process and save results."""
-        print "Running Test.........."
+        self.logger.info("Running Test..........")
         speedtest_process = subprocess.Popen(
-            ["C:\Python27\Scripts\speedtest.exe"],
+            self.speedtest_cmd,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        speedtest_out, er = speedtest_process.communicate()
-        # speedtest_out = live_communicate(speedtest_process)
+        speedtest_out = live_communicate(speedtest_process, logger=self.logger)
 
-        speedtest_process = subprocess.Popen(
-            ["NETSH", "WLAN", "SHOW", "INTERFACE", "|", "findstr", "/r", "'^....SSID'"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        wlan_info_out, err = speedtest_process.communicate()
-        print "Running Test Complete."
-        print "Saving Results"
-        self.parse_and_save_results(speedtest_out + wlan_info_out)
-        print "Saving Results Complete"
+        if os.name == "nt":
+            speedtest_process = subprocess.Popen(
+                ["NETSH", "WLAN", "SHOW", "INTERFACE", "|", "findstr", "/r", "'^....SSID'"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            wlan_info_out, err = speedtest_process.communicate()
+            speedtest_out += wlan_info_out
+
+        self.logger.info("Running Test Complete.")
+        self.logger.info("Saving Results")
+        self.parse_and_save_results(speedtest_out)
+        self.logger.info("Saving Results Complete")
 
     def parse_and_save_results(self, output):
         """
@@ -78,7 +87,6 @@ class SpeedTester(object):
 
         @param output the raw output from running speedtest.exe
         """
-        # print output
         from_regex = "Testing from (.+) \((%s)" % self.ipv4_regex
         from_addr = re.search(from_regex, output)
         provider = from_addr.group(1)
@@ -94,7 +102,7 @@ class SpeedTester(object):
             ssid_regex = "SSID\s+: (.+\s)"
             ssid_name = re.search(ssid_regex, output).group(1).strip()
         except AttributeError:
-            print "You have a wired connection"
+            self.logger.info("You have a wired connection")
             ssid_name = "wired"
         result = {
             "Provider": provider,
@@ -113,7 +121,7 @@ class SpeedTester(object):
 
         @param pretty should be True if you want to read the result file yourself. (default=False)
         """
-        with open(PATH_TO_RESULTS, 'w') as f:
+        with open(self.results_file, 'w') as f:
             if pretty:
                 f.write(json.dumps(self.results, f, sort_keys=True, indent=4, separators=(',', ': ')))
             else:
@@ -122,12 +130,15 @@ class SpeedTester(object):
 
 def main():
     """Example of how to use the class."""
-    tester = SpeedTester()
-    tester.get_previous_results()
-    tester.run_test()
-    tester.write_results_to_file(pretty=True)
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)                   # Create a logger
+    logger = logging.getLogger(__name__)                       # Any logger should do
+
+    tester = SpeedTester(logger, "Results/speedresults.json")   # Create instance of class
+    tester.get_previous_results()                              # Optionally load previous results
+    tester.run_test()                                          # Run the tests
+    tester.write_results_to_file(pretty=True)                  # Save results
 
 if __name__ == '__main__':
     main()
-else:
-    print __name__
