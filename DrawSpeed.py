@@ -84,8 +84,8 @@ class DrawWithPyPlot(object):
         """
         super(DrawWithPyPlot, self).__init__()
         self.speeddata = speeddata
-        self.datetime_regex = "(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)"
-        self.number = "(\d.+)(M|m)"
+        self.datetime_regex = r"(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)"
+        self.number = r"(\d.+)(M|m)"
         self.mpl_fig_obj, self.ax = plt.subplots(1)
         # self.mpl_fig_obj = plt.figure()
 
@@ -277,7 +277,7 @@ class DrawWithPyPlot(object):
             self.extra_annotation.remove()
             self.extra_annotation = None
         new_annotation = plt.annotate(
-            "{0}".format(re.sub(r'(\.{3,})', "\1\n", self.all_info[idx]).replace("\r\n", "\n")),
+            "{0}".format(re.sub(r'(\.{3,})', r"\1\n", self.all_info[idx]).replace("\r\n", "\n")),
             xy=(self.timestamps[idx], self.data["data"][idx]), xytext=(-20, -20),
             textcoords='offset points', ha='left', va='bottom', family="monospace",
             bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.9),
@@ -391,8 +391,8 @@ class DrawWithPlotly(object):
         """Initialize main data and some regexes."""
         super(DrawWithPlotly, self).__init__()
         self.speeddata = speeddata
-        self.datetime_regex = "(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)"
-        self.number = "(\d.+)(M|m)"
+        self.datetime_regex = r"(\d\d\d\d)-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)"
+        self.number = r"(\d.+)(M|m)"
 
     def get_template_trace(self, graph):
         """

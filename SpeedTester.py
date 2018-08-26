@@ -38,7 +38,7 @@ class SpeedTester(object):
         @param results_file
         """
         super(SpeedTester, self).__init__()
-        self.ipv4_regex = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+        self.ipv4_regex = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
         self.results = {}
         self.logger = logger
         self.results_file = results_file
@@ -87,11 +87,11 @@ class SpeedTester(object):
 
         @param output the raw output from running speedtest.exe
         """
-        from_regex = "Testing from (.+) \((%s)" % self.ipv4_regex
+        from_regex = r"Testing from (.+) \((%s)" % self.ipv4_regex
         from_addr = re.search(from_regex, output)
         provider = from_addr.group(1)
         ip_addr = from_addr.group(2)
-        ping_regex = "Hosted by.+?(\d+?.\d+?\sms)"
+        ping_regex = r"Hosted by.+?(\d+?.\d+?\sms)"
         ping_time = re.search(ping_regex, output).group(1)
         download_regex = "Download: (.+?/s)"
         download_speed = re.search(download_regex, output).group(1)
@@ -99,7 +99,7 @@ class SpeedTester(object):
         upload_speed = re.search(upload_regex, output).group(1)
 
         try:
-            ssid_regex = "SSID\s+: (.+\s)"
+            ssid_regex = r"SSID\s+: (.+\s)"
             ssid_name = re.search(ssid_regex, output).group(1).strip()
         except AttributeError:
             self.logger.info("You have a wired connection")
