@@ -10,22 +10,38 @@ import logging
 import os
 import sys
 import time
+import json
 
 import SpeedTester
+import DrawSpeed
 
 
 def parse_cmd_line_options():
     """Option parser for runner."""
-    parser = argparse.ArgumentParser(prog='runner.py',
-                                     description="Set script frequency and duration.",
-                                     epilog="Both frequency and duration should be formatted as follows  ----------- interger [sec|min|hour|day|] ex) 5 min")
-    parser.add_argument("-f", "--frequency", nargs=2, required=True,
-                        help='How often should we run.')
-    parser.add_argument("-d", "--duration", nargs=2, default=[24, "hour"],
-                        help="How long should we run. (default=%(default)s)")
-    parser.add_argument("-resultfile", default="Results/speedresults.txt")
-    parser.add_argument("-configfile")
-    parser.add_argument("-pidfile")
+    parser = argparse.ArgumentParser(prog='runner.py', description="Measure and view your internet speeds")
+    subparsers = parser.add_subparsers(help='help for subcommand', dest="command")
+
+    # create the parser for the "run" command
+    run_parser = subparsers.add_parser('run', description="Measure internet speed periodically by setting frequency and duration.",
+                                       epilog="Both frequency and duration should be formatted as follows \
+                                         ----------- interger [sec|min|hour|day|] ex) 5 min")
+    run_parser.add_argument("-f", "--frequency", nargs=2, required=True,
+                            help='How often should we run.')
+    run_parser.add_argument("-d", "--duration", nargs=2, default=[24, "hour"],
+                            help="How long should we run. (default=%(default)s)")
+    run_parser.add_argument("-resultfile", default="speedresults.json",
+                            help="Location where results shouls be saved (default=%(default)s)")
+    run_parser.add_argument("-configfile")
+    run_parser.add_argument("-pidfile")
+
+    # create the parser for the "draw" command
+    draw_parser = subparsers.add_parser('draw', help='help for command_2')
+    draw_parser.add_argument("-resultfile", default="speedresults.json", help="Choose results file to draw.  (default=%(default)s)")
+    draw_parser.add_argument("-type", default="pyplot", choices=["pyplot", "plotly"],
+                             help="The type of graph to display (default=%(default)s)")
+    draw_parser.add_argument("-filter", nargs=2, help='Filter data on specific key value pairs')
+    draw_parser.add_argument("-options", default="download", choices=["download", "upload"],
+                             help='Graph upload or download speeds. (default=%(default)s)')
     return parser.parse_args()
 
 
@@ -114,14 +130,14 @@ class Runner(object):
     def run(self):
         while True:
             self.exec_num += 1
-            self.logger.info ("""Execution number {exec_num}.\nElapsed secs = {time}"""
-                   .format(exec_num=self.exec_num, time=time.time() - self.start_time))
+            self.logger.info("Execution number {exec_num}.".format(exec_num=self.exec_num))
+            self.logger.info("Elapsed secs = {time}".format(time=time.time() - self.start_time))
             self.tester.run_test()
             self.tester.write_results_to_file(pretty=True)
             if self.we_should_stop():
                 self.logger.info("runner was told to stop(pidfile blank)")
                 break
-            self.logger.info ("Done. now sleeping for {sec} second(s)".format(sec=self.sec_delay))
+            self.logger.info("Done. now sleeping for {sec} second(s)".format(sec=self.sec_delay))
             time.sleep(self.sec_delay)
             if time.time() - self.start_time > float(self.sec_to_run):
                 break
@@ -130,19 +146,59 @@ class Runner(object):
 def main():
     """Run main function."""
     options = parse_cmd_line_options()
-    sec_delay = get_seconds(options.frequency)
-    sec_to_run = get_seconds(options.duration)
-    start_time = time.time()
-    exec_num = 0
+    if options.command == "run":
+        sec_delay = get_seconds(options.frequency)
+        sec_to_run = get_seconds(options.duration)
+        start_time = time.time()
+        exec_num = 0
 
-    logging.basicConfig(level=logging.DEBUG)                   # Create a logger
-    logger = logging.getLogger(__name__)                       # Any logger should do
+        logging.basicConfig(level=logging.INFO)                    # Create a logger
+        logger = logging.getLogger(__name__)                       # Any logger should do
 
-    tester = SpeedTester.SpeedTester(logger, options.resultfile)
-    tester.get_previous_results()
-    runner = Runner(exec_num, sec_delay, sec_to_run, start_time, tester, logger, options.pidfile)
-    runner.run()
-    logger.close()
+        tester = SpeedTester.SpeedTester(logger, options.resultfile)
+        try:
+            tester.get_previous_results()
+        except:
+            pass
+        runner = Runner(exec_num, sec_delay, sec_to_run, start_time, tester, logger, options.pidfile)
+        runner.run()
+    if options.command == "draw":
+        with open(options.resultfile) as f:
+            results = json.load(f)
+        if options.type == "pyplot":
+            d_speed = DrawSpeed.DrawWithPyPlot(results)
+            if options.filter:
+                d_speed.speeddata = DrawSpeed.filter_data(d_speed.speeddata,
+                                                          options.filter[0],
+                                                          options.filter[1])
+            DrawSpeed.parse_data(d_speed, parsedays=True)
+            if options.options == "download":
+                d_speed.set_data({"name": "Download", "unit": "Mbit/s", "data": d_speed.download_speeds})
+            elif options.options == "upload":
+                d_speed.set_data({"name": "Upload", "unit": "Mbit/s", "data": d_speed.upload_speeds})
+            else:
+                d_speed.set_data({"name": "Ping", "unit": "ms", "data": d_speed.ping_speeds})
+            d_speed.draw_data()  # Graph it!
+        else:
+            # Using the DrawWithPlotly Class
+            d_speed = DrawSpeed.DrawWithPlotly(results)
+            if options.filter:
+                d_speed.speeddata = DrawSpeed.filter_data(d_speed.speeddata,
+                                                          options.filter[0],
+                                                          options.filter[1])
+            DrawSpeed.parse_data(d_speed, parsedays=True)
+
+            # d_speed.set_data({"name": "Download", "unit": "Mbit/s", "data": d_speed.download_speeds})
+            if options.options == "download":
+                d_speed.set_data(["download"])
+            elif options.options == "upload":
+                d_speed.set_data(["upload"])
+            else:
+                d_speed.set_data(["download", "upload"])
+            d_speed.draw_data()  # Graph it!
+
+    return 1
+
 
 if __name__ == '__main__':
     main()
