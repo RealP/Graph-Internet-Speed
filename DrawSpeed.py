@@ -483,7 +483,7 @@ class DrawWithPlotly(object):
         """Call to set up layout and plotly plot to make html page."""
         self.setup_layout()
         fig = plotly.graph_objs.Figure(data=self.data, layout=self.layout)
-        plotly.offline.plot(fig, filename='Results/speedresults.html')
+        plotly.offline.plot(fig, filename='speedresults.html')
 
 
 def main():
@@ -491,7 +491,7 @@ def main():
 
     # The data for the classes is the same
     import json
-    results_file = "Results/speedresults1.json"
+    results_file = "speedresults.json"
     with open(results_file) as f:
         results = json.load(f)
 

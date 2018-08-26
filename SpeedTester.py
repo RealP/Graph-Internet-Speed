@@ -1,7 +1,7 @@
 """
 Runs a speed test to test internet speed.
 
-Results are written to a file called "speedresults.json" in a child directory called Results.
+Results are written to a file called "speedresults.json".
 This script is best used with a cronjob, windows schedule or included runner script.
 
 pip install speedtest-cli
@@ -135,7 +135,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG)                   # Create a logger
     logger = logging.getLogger(__name__)                       # Any logger should do
 
-    tester = SpeedTester(logger, "Results/speedresults.json")   # Create instance of class
+    tester = SpeedTester(logger, "speedresults.json")          # Create instance of class
     tester.get_previous_results()                              # Optionally load previous results
     tester.run_test()                                          # Run the tests
     tester.write_results_to_file(pretty=True)                  # Save results
