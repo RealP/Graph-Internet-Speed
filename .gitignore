@@ -1,2 +1,4 @@
 # no pyc
 *.pyc
+#default resultfile
+speedresults.json
